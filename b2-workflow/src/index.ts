@@ -77,36 +77,42 @@ export async function main(inputs: Inputs): Promise<void> {
     // ----------------------------------------------
     // Bootstrap B2
     // ----------------------------------------------
-    core.startGroup('🔎 Bootstrap B2');
-    // Run bootstrap.sh or bootstrap.bat from the source directory
-    // to build B2
-    const prev_cxx = process.env['CXX'];
-    process.env['CXX'] = ''; // Let B2 identify the compiler at this step
-    const bootstrap_path = path.join(inputs.source_dir, 'bootstrap' + (process.platform === 'win32' ? '.bat' : '.sh'));
-    fnlog(`bootstrap_path: ${bootstrap_path}`);
-    const bootstrap_args: string[] = [];
-    // if (inputs.toolset && inputs.toolset !== 'clang-win') {
-    //     bootstrap_args.push(inputs.toolset)
-    // }
-    core.info(`💻 ${inputs.source_dir}> ${bootstrap_path} ${bootstrap_args.join(' ')}`);
-    {
-        const { exitCode } = await exec.getExecOutput(`"${bootstrap_path}"`, bootstrap_args, {
-            cwd: inputs.source_dir,
-            ignoreReturnCode: true
-        });
-        if (exitCode !== 0) {
-            throw new Error(`B2 bootstrap failed with exit code ${exitCode}`);
+    // Check if B2 executable already exists before running bootstrap
+    const b2_path = path.join(inputs.source_dir, 'b2' + (process.platform === 'win32' ? '.exe' : ''));
+    if (fs.existsSync(b2_path)) {
+        core.info('✅ B2 executable already exists, skipping bootstrap');
+        fnlog(`b2_path exists: ${b2_path}`);
+    } else {
+        core.startGroup('🔎 Bootstrap B2');
+        // Run bootstrap.sh or bootstrap.bat from the source directory
+        // to build B2
+        const prev_cxx = process.env['CXX'];
+        process.env['CXX'] = ''; // Let B2 identify the compiler at this step
+        const bootstrap_path = path.join(inputs.source_dir, 'bootstrap' + (process.platform === 'win32' ? '.bat' : '.sh'));
+        fnlog(`bootstrap_path: ${bootstrap_path}`);
+        const bootstrap_args: string[] = [];
+        // if (inputs.toolset && inputs.toolset !== 'clang-win') {
+        //     bootstrap_args.push(inputs.toolset)
+        // }
+        core.info(`💻 ${inputs.source_dir}> ${bootstrap_path} ${bootstrap_args.join(' ')}`);
+        {
+            const { exitCode } = await exec.getExecOutput(`"${bootstrap_path}"`, bootstrap_args, {
+                cwd: inputs.source_dir,
+                ignoreReturnCode: true
+            });
+            if (exitCode !== 0) {
+                throw new Error(`B2 bootstrap failed with exit code ${exitCode}`);
+            }
         }
+        process.env['CXX'] = prev_cxx;
+        core.endGroup();
     }
-    process.env['CXX'] = prev_cxx;
-    core.endGroup();
 
     // ----------------------------------------------
     // Bootstrap headers
     // ----------------------------------------------
     core.startGroup('🔎 Bootstrap headers');
     // ./b2 headers
-    const b2_path = path.join(inputs.source_dir, 'b2' + (process.platform === 'win32' ? '.exe' : ''));
     fnlog(`b2_path: ${b2_path}`);
     const bootstrap_headers_args = ['headers'];
     core.info(`💻 ${inputs.source_dir}> ${b2_path} ${bootstrap_headers_args.join(' ')}`);
